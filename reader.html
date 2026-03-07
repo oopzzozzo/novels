@@ -16,107 +16,50 @@
             --accent-color: #d1ccc0;
         }
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Noto Serif TC", serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
+            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
         }
         #header {
             padding: 12px 25px;
             background: var(--header-bg);
             color: var(--header-text);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 100;
-            flex-shrink: 0;
+            z-index: 100; flex-shrink: 0;
         }
         #reader-container {
-            flex: 1;
-            padding: 40px 5%;
-            writing-mode: vertical-rl;
-            -webkit-writing-mode: vertical-rl;
-            overflow-x: auto;
-            overflow-y: hidden;
-            display: flex;
-            cursor: grab;
-            scroll-behavior: smooth;
+            flex: 1; padding: 40px 5%;
+            writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl;
+            overflow-x: auto; overflow-y: hidden;
+            display: flex; cursor: grab; scroll-behavior: smooth;
         }
         #reader-container:active { cursor: grabbing; }
-        
         #content {
-            font-size: 24px;
-            line-height: 2.2;
-            letter-spacing: 0.15em;
-            max-height: 100%;
-            white-space: pre-wrap;
-            text-align: justify;
+            font-size: 24px; line-height: 2.2; letter-spacing: 0.15em;
+            max-height: 100%; white-space: pre-wrap; text-align: justify;
         }
         .btn {
-            padding: 10px 18px;
-            background: var(--btn-bg);
-            color: #ffffff;
-            border: 1px solid #444;
-            cursor: pointer;
-            border-radius: 6px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-            font-weight: 500;
+            padding: 10px 18px; background: var(--btn-bg); color: #ffffff;
+            border: 1px solid #444; cursor: pointer; border-radius: 6px;
+            font-size: 14px; display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s; font-weight: 500;
         }
-        .btn:hover:not(:disabled) { 
-            background: var(--btn-hover);
-            transform: translateY(-1px);
-        }
-        .btn:active:not(:disabled) { transform: translateY(0); }
-        .btn:disabled {
-            background: var(--btn-disabled);
-            color: #666;
-            cursor: not-allowed;
-            border-color: #222;
-        }
-        #file-info {
-            font-weight: bold;
-            font-size: 20px;
-            writing-mode: horizontal-tb;
-            color: #efefef;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-        }
+        .btn:hover:not(:disabled) { background: var(--btn-hover); transform: translateY(-1px); }
+        .btn:disabled { background: var(--btn-disabled); color: #666; cursor: not-allowed; }
+        #file-info { font-weight: bold; font-size: 20px; writing-mode: horizontal-tb; color: #efefef; }
         .nav-group { display: flex; align-items: center; gap: 15px; }
-        .chapter-label {
-            font-size: 12px;
-            color: #bbb;
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            display: block;
-        }
-        .btn:disabled .chapter-label { color: #444; }
+        .chapter-label { font-size: 12px; color: #bbb; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
         
         #reader-container::-webkit-scrollbar { height: 10px; }
-        #reader-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
-        #reader-container::-webkit-scrollbar-thumb {
-            background: var(--accent-color);
-            border-radius: 5px;
-            border: 2px solid var(--bg-color);
-        }
-        #reader-container::-webkit-scrollbar-thumb:hover { background: #b1aca0; }
+        #reader-container::-webkit-scrollbar-thumb { background: var(--accent-color); border-radius: 5px; border: 2px solid var(--bg-color); }
 
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateX(30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
         #directoryInput { display: none; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body>
@@ -124,160 +67,89 @@
         <div class="nav-group">
             <input type="file" id="directoryInput" webkitdirectory directory multiple>
             <button class="btn" id="pickFolder">📁 選擇資料夾</button>
-            <button class="btn" id="prevBtn" title="上一章 (Up Arrow)">
-                <span>▲</span> <span id="prevLabel" class="chapter-label"></span>
-            </button>
+            <button class="btn" id="prevBtn"><span>▲</span> <span id="prevLabel" class="chapter-label"></span></button>
         </div>
         <div id="file-info">請選擇資料夾開始閱讀</div>
         <div class="nav-group">
-            <button class="btn" id="nextBtn" title="下一章 (Down Arrow)">
-                <span id="nextLabel" class="chapter-label"></span> <span>▼</span>
-            </button>
+            <button class="btn" id="nextBtn"><span id="nextLabel" class="chapter-label"></span> <span>▼</span></button>
         </div>
     </div>
-    <div id="reader-container">
-        <div id="content"></div>
-    </div>
+    <div id="reader-container"><div id="content"></div></div>
 
     <script>
-        let chapters = [];
-        let currentIndex = -1;
-
-        const contentDiv = document.getElementById('content');
-        const fileInfo = document.getElementById('file-info');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const prevLabel = document.getElementById('prevLabel');
-        const nextLabel = document.getElementById('nextLabel');
-        const pickBtn = document.getElementById('pickFolder');
-        const directoryInput = document.getElementById('directoryInput');
+        let chapters = [], currentIndex = -1;
+        const contentDiv = document.getElementById('content'), fileInfo = document.getElementById('file-info');
+        const prevBtn = document.getElementById('prevBtn'), nextBtn = document.getElementById('nextBtn');
+        const prevLabel = document.getElementById('prevLabel'), nextLabel = document.getElementById('nextLabel');
+        const pickBtn = document.getElementById('pickFolder'), directoryInput = document.getElementById('directoryInput');
         const container = document.getElementById('reader-container');
 
-        function naturalSort(a, b) {
-            return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-        }
+        const naturalSort = (a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 
-        pickBtn.addEventListener('click', () => {
-            directoryInput.click();
-        });
+        pickBtn.addEventListener('click', () => directoryInput.click());
 
         directoryInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files)
                 .filter(file => file.name.endsWith('.txt'))
                 .sort(naturalSort);
             
-            if (files.length === 0) {
-                alert("找不到 .txt 檔案");
-                return;
-            }
-
+            if (files.length === 0) { alert("找不到 .txt 檔案"); return; }
             chapters = files;
-            console.log(`Loaded ${chapters.length} chapters.`);
-            
-            // Try to restore position
-            const lastFile = localStorage.getItem('reader_last_file');
+
+            // Progress Memory: restore last read file
+            const lastFile = localStorage.getItem('firefox_reader_last_file');
             let startIdx = 0;
             if (lastFile) {
                 const foundIdx = chapters.findIndex(f => f.name === lastFile);
                 if (foundIdx !== -1) startIdx = foundIdx;
             }
-            
             loadChapter(startIdx);
         });
 
         async function loadChapter(index) {
             if (index < 0 || index >= chapters.length) return;
-            
             currentIndex = index;
             const file = chapters[currentIndex];
             let text = await file.text();
             
-            // Masking common horizontal characters for vertical display
-            const masks = [
-                [/…/g, '︙'],
-                [/《/g, '﹃'],
-                [/》/g, '﹄'],
-                [/〈/g, '︿'],
-                [/〉/g, '﹀'],
-                [/（/g, '︵'],
-                [/）/g, '︶']
-            ];
-            
-            masks.forEach(([reg, rep]) => {
-                text = text.replace(reg, rep);
-            });
+            // Vertical masking
+            const masks = [[/…/g, '︙'], [/《/g, '﹃'], [/》/g, '﹄'], [/〈/g, '︿'], [/〉/g, '﹀'], [/（/g, '︵'], [/）/g, '︶']];
+            masks.forEach(([reg, rep]) => text = text.replace(reg, rep));
 
             contentDiv.innerText = text;
             fileInfo.innerText = file.name.replace('.txt', '');
+            updateNavUI();
+            container.scrollLeft = container.scrollWidth;
+            localStorage.setItem('firefox_reader_last_file', file.name);
             
             container.classList.remove('fade-in');
             void container.offsetWidth; 
             container.classList.add('fade-in');
-            
-            updateNavUI();
-            
-            // Scroll to the "beginning" (the far right in vertical-rl)
-            container.scrollLeft = container.scrollWidth;
-            
-            // Remember filename
-            localStorage.setItem('reader_last_file', file.name);
         }
 
         function updateNavUI() {
-            if (currentIndex > 0) {
-                prevBtn.disabled = false;
-                prevLabel.innerText = chapters[currentIndex-1].name.replace('.txt', '');
-            } else {
-                prevBtn.disabled = true;
-                prevLabel.innerText = "已是首章";
-            }
-
-            if (currentIndex < chapters.length - 1) {
-                nextBtn.disabled = false;
-                nextLabel.innerText = chapters[currentIndex+1].name.replace('.txt', '');
-            } else {
-                nextBtn.disabled = true;
-                nextLabel.innerText = "已是末章";
-            }
+            if (currentIndex > 0) { prevBtn.disabled = false; prevLabel.innerText = chapters[currentIndex-1].name.replace('.txt', ''); }
+            else { prevBtn.disabled = true; prevLabel.innerText = "已是首章"; }
+            if (currentIndex < chapters.length - 1) { nextBtn.disabled = false; nextLabel.innerText = chapters[currentIndex+1].name.replace('.txt', ''); }
+            else { nextBtn.disabled = true; nextLabel.innerText = "已是末章"; }
         }
 
         prevBtn.addEventListener('click', () => loadChapter(currentIndex - 1));
         nextBtn.addEventListener('click', () => loadChapter(currentIndex + 1));
 
         document.addEventListener('keydown', (e) => {
-            const pageWidth = container.clientWidth;
-            const scrollAmount = pageWidth * 0.75;
-
-            if (e.key === 'ArrowLeft') {
-                container.scrollLeft -= scrollAmount;
-            } else if (e.key === 'ArrowRight') {
-                container.scrollLeft += scrollAmount;
-            } else if (e.key === 'ArrowUp') {
-                loadChapter(currentIndex - 1);
-            } else if (e.key === 'ArrowDown') {
-                loadChapter(currentIndex + 1);
-            }
+            const scrollAmount = container.clientWidth * 0.75;
+            if (e.key === 'ArrowLeft') container.scrollLeft -= scrollAmount;
+            else if (e.key === 'ArrowRight') container.scrollLeft += scrollAmount;
+            else if (e.key === 'ArrowUp') loadChapter(currentIndex - 1);
+            else if (e.key === 'ArrowDown') loadChapter(currentIndex + 1);
         });
 
-        // Drag to scroll
-        let isDown = false;
-        let startX;
-        let scrollLeft;
-
-        container.addEventListener('mousedown', (e) => {
-            isDown = true;
-            startX = e.pageX - container.offsetLeft;
-            scrollLeft = container.scrollLeft;
-        });
-        container.addEventListener('mouseleave', () => { isDown = false; });
-        container.addEventListener('mouseup', () => { isDown = false; });
-        container.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            const x = e.pageX - container.offsetLeft;
-            const walk = (x - startX) * 2;
-            container.scrollLeft = scrollLeft - walk;
-        });
+        let isDown = false, startX, scrollLeft;
+        container.addEventListener('mousedown', (e) => { isDown = true; startX = e.pageX - container.offsetLeft; scrollLeft = container.scrollLeft; });
+        container.addEventListener('mouseleave', () => isDown = false);
+        container.addEventListener('mouseup', () => isDown = false);
+        container.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - container.offsetLeft; const walk = (x - startX) * 2; container.scrollLeft = scrollLeft - walk; });
     </script>
 </body>
 </html>
