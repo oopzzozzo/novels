@@ -116,30 +116,13 @@
             from { opacity: 0; transform: translateX(30px); }
             to { opacity: 1; transform: translateX(0); }
         }
-        
-        #permission-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            color: white;
-            text-align: center;
-        }
-        #permission-overlay h2 { margin-bottom: 20px; }
+        #directoryInput { display: none; }
     </style>
 </head>
 <body>
-    <div id="permission-overlay">
-        <h2>需要存取權限以繼續閱讀</h2>
-        <button class="btn" id="grantPermission" style="font-size: 18px; padding: 15px 30px;">🔓 授權並開啟</button>
-    </div>
-
     <div id="header">
         <div class="nav-group">
+            <input type="file" id="directoryInput" webkitdirectory directory multiple>
             <button class="btn" id="pickFolder">📁 選擇資料夾</button>
             <button class="btn" id="prevBtn" title="上一章 (Up Arrow)">
                 <span>▲</span> <span id="prevLabel" class="chapter-label"></span>
@@ -150,7 +133,6 @@
             <button class="btn" id="nextBtn" title="下一章 (Down Arrow)">
                 <span id="nextLabel" class="chapter-label"></span> <span>▼</span>
             </button>
-            <button class="btn" id="refreshBtn" title="重新掃描 (R)">↻</button>
         </div>
     </div>
     <div id="reader-container">
@@ -158,14 +140,8 @@
     </div>
 
     <script>
-        // IndexedDB configuration for storing the directory handle
-        const DB_NAME = 'ReaderDB';
-        const STORE_NAME = 'Handles';
-        const KEY = 'last_dir';
-
         let chapters = [];
         let currentIndex = -1;
-        let dirHandle = null;
 
         const contentDiv = document.getElementById('content');
         const fileInfo = document.getElementById('file-info');
@@ -174,119 +150,77 @@
         const prevLabel = document.getElementById('prevLabel');
         const nextLabel = document.getElementById('nextLabel');
         const pickBtn = document.getElementById('pickFolder');
-        const refreshBtn = document.getElementById('refreshBtn');
-        const overlay = document.getElementById('permission-overlay');
-        const grantBtn = document.getElementById('grantPermission');
+        const directoryInput = document.getElementById('directoryInput');
         const container = document.getElementById('reader-container');
-
-        // IndexedDB helpers
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 1);
-                request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        async function saveHandle(handle) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                tx.objectStore(STORE_NAME).put(handle, KEY);
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(tx.error);
-            });
-        }
-
-        async function getHandle() {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const request = tx.objectStore(STORE_NAME).get(KEY);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
 
         function naturalSort(a, b) {
             return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
         }
 
-        async function scanFiles() {
-            if (!dirHandle) return;
-            const files = [];
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
-                    files.push(entry);
-                }
-            }
-            chapters = files.sort(naturalSort);
-            updateNavUI();
-        }
-
-        pickBtn.addEventListener('click', async () => {
-            try {
-                dirHandle = await window.showDirectoryPicker();
-                await saveHandle(dirHandle);
-                await scanFiles();
-                if (chapters.length > 0) loadChapter(0);
-            } catch (err) {
-                console.error(err);
-            }
+        pickBtn.addEventListener('click', () => {
+            directoryInput.click();
         });
 
-        grantBtn.addEventListener('click', async () => {
-            if (await dirHandle.requestPermission({mode: 'read'}) === 'granted') {
-                overlay.style.display = 'none';
-                await scanFiles();
-                
-                // Restore last read chapter
-                const lastChapter = localStorage.getItem('last_chapter_name');
-                let targetIdx = 0;
-                if (lastChapter) {
-                    const idx = chapters.findIndex(c => c.name === lastChapter);
-                    if (idx !== -1) targetIdx = idx;
-                }
-                loadChapter(targetIdx);
+        directoryInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files)
+                .filter(file => file.name.endsWith('.txt'))
+                .sort(naturalSort);
+            
+            if (files.length === 0) {
+                alert("找不到 .txt 檔案");
+                return;
             }
-        });
 
-        refreshBtn.addEventListener('click', async () => {
-            if (!dirHandle) return;
-            const currentName = chapters[currentIndex]?.name;
-            await scanFiles();
-            if (currentName) {
-                currentIndex = chapters.findIndex(c => c.name === currentName);
-                updateNavUI();
+            chapters = files;
+            console.log(`Loaded ${chapters.length} chapters.`);
+            
+            // Try to restore position
+            const lastFile = localStorage.getItem('reader_last_file');
+            let startIdx = 0;
+            if (lastFile) {
+                const foundIdx = chapters.findIndex(f => f.name === lastFile);
+                if (foundIdx !== -1) startIdx = foundIdx;
             }
+            
+            loadChapter(startIdx);
         });
 
         async function loadChapter(index) {
             if (index < 0 || index >= chapters.length) return;
             
             currentIndex = index;
-            const fileHandle = chapters[currentIndex];
-            const file = await fileHandle.getFile();
+            const file = chapters[currentIndex];
             let text = await file.text();
             
+            // Masking common horizontal characters for vertical display
             const masks = [
-                [/…/g, '︙'], [/《/g, '﹃'], [/》/g, '﹄'],
-                [/〈/g, '︿'], [/〉/g, '﹀'], [/（/g, '︵'], [/）/g, '︶']
+                [/…/g, '︙'],
+                [/《/g, '﹃'],
+                [/》/g, '﹄'],
+                [/〈/g, '︿'],
+                [/〉/g, '﹀'],
+                [/（/g, '︵'],
+                [/）/g, '︶']
             ];
-            masks.forEach(([reg, rep]) => text = text.replace(reg, rep));
+            
+            masks.forEach(([reg, rep]) => {
+                text = text.replace(reg, rep);
+            });
 
             contentDiv.innerText = text;
-            fileInfo.innerText = fileHandle.name.replace('.txt', '');
+            fileInfo.innerText = file.name.replace('.txt', '');
             
             container.classList.remove('fade-in');
             void container.offsetWidth; 
             container.classList.add('fade-in');
             
             updateNavUI();
+            
+            // Scroll to the "beginning" (the far right in vertical-rl)
             container.scrollLeft = container.scrollWidth;
             
-            localStorage.setItem('last_chapter_name', fileHandle.name);
+            // Remember filename
+            localStorage.setItem('reader_last_file', file.name);
         }
 
         function updateNavUI() {
@@ -313,39 +247,30 @@
         document.addEventListener('keydown', (e) => {
             const pageWidth = container.clientWidth;
             const scrollAmount = pageWidth * 0.75;
-            if (e.key === 'ArrowLeft') container.scrollLeft -= scrollAmount;
-            else if (e.key === 'ArrowRight') container.scrollLeft += scrollAmount;
-            else if (e.key === 'ArrowUp') loadChapter(currentIndex - 1);
-            else if (e.key === 'ArrowDown') loadChapter(currentIndex + 1);
-            else if (e.key.toLowerCase() === 'r') refreshBtn.click();
-        });
 
-        // Initialize: check if we have a saved directory
-        window.addEventListener('load', async () => {
-            dirHandle = await getHandle();
-            if (dirHandle) {
-                if (await dirHandle.queryPermission({mode: 'read'}) === 'granted') {
-                    await scanFiles();
-                    const lastChapter = localStorage.getItem('last_chapter_name');
-                    let targetIdx = 0;
-                    if (lastChapter) {
-                        const idx = chapters.findIndex(c => c.name === lastChapter);
-                        if (idx !== -1) targetIdx = idx;
-                    }
-                    loadChapter(targetIdx);
-                } else {
-                    overlay.style.display = 'flex';
-                }
+            if (e.key === 'ArrowLeft') {
+                container.scrollLeft -= scrollAmount;
+            } else if (e.key === 'ArrowRight') {
+                container.scrollLeft += scrollAmount;
+            } else if (e.key === 'ArrowUp') {
+                loadChapter(currentIndex - 1);
+            } else if (e.key === 'ArrowDown') {
+                loadChapter(currentIndex + 1);
             }
         });
 
-        // Drag to scroll logic
-        let isDown = false, startX, scrollLeft;
+        // Drag to scroll
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
         container.addEventListener('mousedown', (e) => {
-            isDown = true; startX = e.pageX - container.offsetLeft; scrollLeft = container.scrollLeft;
+            isDown = true;
+            startX = e.pageX - container.offsetLeft;
+            scrollLeft = container.scrollLeft;
         });
-        container.addEventListener('mouseleave', () => isDown = false);
-        container.addEventListener('mouseup', () => isDown = false);
+        container.addEventListener('mouseleave', () => { isDown = false; });
+        container.addEventListener('mouseup', () => { isDown = false; });
         container.addEventListener('mousemove', (e) => {
             if (!isDown) return;
             e.preventDefault();
