@@ -8,9 +8,12 @@
         :root {
             --bg-color: #f4f1ea;
             --text-color: #2c2c2c;
-            --border-color: #d1ccc0;
+            --header-bg: #3d3d3d;
+            --header-text: #ffffff;
             --btn-bg: #5d5d5d;
-            --btn-hover: #444;
+            --btn-hover: #777;
+            --btn-disabled: #2a2a2a;
+            --accent-color: #d1ccc0;
         }
         body {
             margin: 0;
@@ -24,13 +27,13 @@
             overflow: hidden;
         }
         #header {
-            padding: 10px 20px;
-            background: #e8e4d8;
+            padding: 12px 25px;
+            background: var(--header-bg);
+            color: var(--header-text);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             z-index: 100;
             flex-shrink: 0;
         }
@@ -49,57 +52,68 @@
         
         #content {
             font-size: 24px;
-            line-height: 2;
-            letter-spacing: 0.1em;
+            line-height: 2.2;
+            letter-spacing: 0.15em;
             max-height: 100%;
             white-space: pre-wrap;
             text-align: justify;
         }
         .btn {
-            padding: 8px 16px;
+            padding: 10px 18px;
             background: var(--btn-bg);
-            color: white;
-            border: none;
+            color: #ffffff;
+            border: 1px solid #444;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 14px;
             display: flex;
             align-items: center;
-            gap: 5px;
-            transition: background 0.2s;
+            gap: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
         }
-        .btn:hover { background: var(--btn-hover); }
+        .btn:hover:not(:disabled) { 
+            background: var(--btn-hover);
+            transform: translateY(-1px);
+        }
+        .btn:active:not(:disabled) { transform: translateY(0); }
         .btn:disabled {
-            background: #ccc;
+            background: var(--btn-disabled);
+            color: #666;
             cursor: not-allowed;
+            border-color: #222;
         }
         #file-info {
             font-weight: bold;
-            font-size: 18px;
+            font-size: 20px;
             writing-mode: horizontal-tb;
+            color: #efefef;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
         .nav-group { display: flex; align-items: center; gap: 15px; }
         .chapter-label {
             font-size: 12px;
-            color: #666;
-            max-width: 150px;
+            color: #bbb;
+            max-width: 120px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             display: block;
         }
+        .btn:disabled .chapter-label { color: #444; }
         
-        #reader-container::-webkit-scrollbar { height: 8px; }
-        #reader-container::-webkit-scrollbar-track { background: transparent; }
+        #reader-container::-webkit-scrollbar { height: 10px; }
+        #reader-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
         #reader-container::-webkit-scrollbar-thumb {
-            background: #d1ccc0;
-            border-radius: 4px;
+            background: var(--accent-color);
+            border-radius: 5px;
+            border: 2px solid var(--bg-color);
         }
         #reader-container::-webkit-scrollbar-thumb:hover { background: #b1aca0; }
 
-        .fade-in { animation: fadeIn 0.3s ease-in; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateX(20px); }
+            from { opacity: 0; transform: translateX(30px); }
             to { opacity: 1; transform: translateX(0); }
         }
         #directoryInput { display: none; }
@@ -109,15 +123,15 @@
     <div id="header">
         <div class="nav-group">
             <input type="file" id="directoryInput" webkitdirectory directory multiple>
-            <button class="btn" id="pickFolder">選擇資料夾</button>
-            <button class="btn" id="prevBtn" title="上一章">
-                <span>◀</span> <span id="prevLabel" class="chapter-label"></span>
+            <button class="btn" id="pickFolder">📁 選擇資料夾</button>
+            <button class="btn" id="prevBtn" title="上一章 (Up Arrow)">
+                <span>▲</span> <span id="prevLabel" class="chapter-label"></span>
             </button>
         </div>
-        <div id="file-info">請點擊選擇資料夾</div>
+        <div id="file-info">請選擇資料夾開始閱讀</div>
         <div class="nav-group">
-            <button class="btn" id="nextBtn" title="下一章">
-                <span id="nextLabel" class="chapter-label"></span> <span>▶</span>
+            <button class="btn" id="nextBtn" title="下一章 (Down Arrow)">
+                <span id="nextLabel" class="chapter-label"></span> <span>▼</span>
             </button>
         </div>
     </div>
@@ -143,9 +157,7 @@
             return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
         }
 
-        pickBtn.addEventListener('click', () => {
-            directoryInput.click();
-        });
+        pickBtn.addEventListener('click', () => directoryInput.click());
 
         directoryInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files)
@@ -158,7 +170,6 @@
             }
 
             chapters = files;
-            console.log(`Loaded ${chapters.length} chapters.`);
             loadChapter(0);
         });
 
@@ -169,7 +180,6 @@
             const file = chapters[currentIndex];
             let text = await file.text();
             
-            // Masking common horizontal characters for vertical display
             const masks = [
                 [/…/g, '︙'],
                 [/《/g, '﹃'],
@@ -192,8 +202,6 @@
             container.classList.add('fade-in');
             
             updateNavUI();
-            
-            // Scroll to the "beginning" (the far right in vertical-rl)
             container.scrollLeft = container.scrollWidth;
         }
 
@@ -203,7 +211,7 @@
                 prevLabel.innerText = chapters[currentIndex-1].name.replace('.txt', '');
             } else {
                 prevBtn.disabled = true;
-                prevLabel.innerText = "";
+                prevLabel.innerText = "已是首章";
             }
 
             if (currentIndex < chapters.length - 1) {
@@ -211,7 +219,7 @@
                 nextLabel.innerText = chapters[currentIndex+1].name.replace('.txt', '');
             } else {
                 nextBtn.disabled = true;
-                nextLabel.innerText = "";
+                nextLabel.innerText = "已是末章";
             }
         }
 
@@ -223,10 +231,8 @@
             const scrollAmount = pageWidth * 0.75;
 
             if (e.key === 'ArrowLeft') {
-                // In vertical-rl, left moves further into the content
                 container.scrollLeft -= scrollAmount;
             } else if (e.key === 'ArrowRight') {
-                // In vertical-rl, right moves back towards the beginning
                 container.scrollLeft += scrollAmount;
             } else if (e.key === 'ArrowUp') {
                 loadChapter(currentIndex - 1);
@@ -235,7 +241,6 @@
             }
         });
 
-        // Drag to scroll
         let isDown = false;
         let startX;
         let scrollLeft;
