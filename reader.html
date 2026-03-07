@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>怪力亂神 - 垂直閱讀器</title>
+    <style>
+        :root {
+            --bg-color: #f4f1ea;
+            --text-color: #2c2c2c;
+            --border-color: #d1ccc0;
+            --btn-bg: #5d5d5d;
+            --btn-hover: #444;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Noto Serif TC", serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #header {
+            padding: 10px 20px;
+            background: #e8e4d8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            z-index: 100;
+            flex-shrink: 0;
+        }
+        #reader-container {
+            flex: 1;
+            padding: 40px 5%;
+            writing-mode: vertical-rl;
+            -webkit-writing-mode: vertical-rl;
+            overflow-x: auto;
+            overflow-y: hidden;
+            display: flex;
+            cursor: grab;
+        }
+        #reader-container:active { cursor: grabbing; }
+        
+        #content {
+            font-size: 24px;
+            line-height: 2;
+            letter-spacing: 0.1em;
+            max-height: 100%;
+            white-space: pre-wrap;
+            text-align: justify;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: var(--btn-bg);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: var(--btn-hover); }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #file-info {
+            font-weight: bold;
+            font-size: 18px;
+            writing-mode: horizontal-tb;
+        }
+        .nav-group { display: flex; align-items: center; gap: 15px; }
+        .chapter-label {
+            font-size: 12px;
+            color: #666;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+        
+        /* Custom scrollbar for horizontal scrolling in vertical mode */
+        #reader-container::-webkit-scrollbar { height: 8px; }
+        #reader-container::-webkit-scrollbar-track { background: transparent; }
+        #reader-container::-webkit-scrollbar-thumb {
+            background: #d1ccc0;
+            border-radius: 4px;
+        }
+        #reader-container::-webkit-scrollbar-thumb:hover { background: #b1aca0; }
+
+        /* Animation for page change */
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div class="nav-group">
+            <button class="btn" id="pickFolder">選擇資料夾</button>
+            <button class="btn" id="prevBtn" title="上一章">
+                <span>◀</span> <span id="prevLabel" class="chapter-label"></span>
+            </button>
+        </div>
+        <div id="file-info">請選擇小說資料夾</div>
+        <div class="nav-group">
+            <button class="btn" id="nextBtn" title="下一章">
+                <span id="nextLabel" class="chapter-label"></span> <span>▶</span>
+            </button>
+            <button class="btn" id="refreshBtn" title="重新掃描新章節">↻</button>
+        </div>
+    </div>
+    <div id="reader-container">
+        <div id="content"></div>
+    </div>
+
+    <script>
+        let fileHandles = [];
+        let currentIndex = -1;
+        let dirHandle = null;
+
+        const contentDiv = document.getElementById('content');
+        const fileInfo = document.getElementById('file-info');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const prevLabel = document.getElementById('prevLabel');
+        const nextLabel = document.getElementById('nextLabel');
+        const pickBtn = document.getElementById('pickFolder');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const container = document.getElementById('reader-container');
+
+        // Natural sort for strings with numbers
+        function naturalSort(a, b) {
+            return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+        }
+
+        async function scanDirectory() {
+            if (!dirHandle) return;
+            const files = [];
+            for await (const entry of dirHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+                    files.push(entry);
+                }
+            }
+            fileHandles = files.sort(naturalSort);
+            return fileHandles;
+        }
+
+        pickBtn.addEventListener('click', async () => {
+            try {
+                dirHandle = await window.showDirectoryPicker();
+                await refresh();
+                if (fileHandles.length > 0) loadChapter(0);
+            } catch (err) {
+                console.error("Folder picker cancelled or failed:", err);
+            }
+        });
+
+        refreshBtn.addEventListener('click', async () => {
+            if (!dirHandle) return;
+            const currentName = fileHandles[currentIndex]?.name;
+            await refresh();
+            // Try to stay on the same file if its index moved
+            if (currentName) {
+                currentIndex = fileHandles.findIndex(f => f.name === currentName);
+            }
+        });
+
+        async function refresh() {
+            await scanDirectory();
+            updateNavUI();
+            console.log(`Scanned ${fileHandles.length} chapters.`);
+        }
+
+        async function loadChapter(index) {
+            if (index < 0 || index >= fileHandles.length) return;
+            
+            currentIndex = index;
+            const fileHandle = fileHandles[currentIndex];
+            const file = await fileHandle.getFile();
+            let text = await file.text();
+            
+            // 1. Layout is already handled by writing-mode: vertical-rl
+            
+            // 2. Mask common horizontal characters with vertical ones
+            // Note: Modern fonts handle 「」 and （） automatically. 
+            // We'll focus on symbols that sometimes don't rotate well.
+            const maskMap = {
+                '（': '（', // Usually handled by font
+                '）': '）',
+                '—': '｜',  // Em dash
+                '～': '｜',
+                '…': '︙',  // Vertical ellipsis
+                '《': '﹃',
+                '》': '﹄',
+                '〈': '︿',
+                '〉': '﹀'
+            };
+            
+            // Note: We don't replace 「」 because vertical-rl handles them perfectly in CJK fonts.
+            // If the user's font is broken, we could do: text = text.replace(/「/g, '﹁').replace(/」/g, '﹂');
+
+            contentDiv.innerText = text;
+            fileInfo.innerText = fileHandle.name.replace('.txt', '');
+            
+            container.classList.remove('fade-in');
+            void container.offsetWidth; // Trigger reflow
+            container.classList.add('fade-in');
+            
+            updateNavUI();
+            
+            // Scroll to the "beginning" (the far right in vertical-rl)
+            container.scrollLeft = container.scrollWidth;
+            
+            // Save last read to localStorage
+            localStorage.setItem('last_chapter', fileHandle.name);
+        }
+
+        function updateNavUI() {
+            if (currentIndex > 0) {
+                prevBtn.disabled = false;
+                prevLabel.innerText = fileHandles[currentIndex-1].name.replace('.txt', '');
+            } else {
+                prevBtn.disabled = true;
+                prevLabel.innerText = "第一章";
+            }
+
+            if (currentIndex < fileHandles.length - 1) {
+                nextBtn.disabled = false;
+                nextLabel.innerText = fileHandles[currentIndex+1].name.replace('.txt', '');
+            } else {
+                nextBtn.disabled = true;
+                nextLabel.innerText = "最後一章";
+            }
+        }
+
+        prevBtn.addEventListener('click', () => loadChapter(currentIndex - 1));
+        nextBtn.addEventListener('click', () => loadChapter(currentIndex + 1));
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') loadChapter(currentIndex + 1); // In vertical-rl, next is to the left
+            if (e.key === 'ArrowRight') loadChapter(currentIndex - 1);
+            if (e.key === 'r' || e.key === 'R') refreshBtn.click();
+        });
+
+        // Mouse drag scrolling
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        container.addEventListener('mousedown', (e) => {
+            isDown = true;
+            startX = e.pageX - container.offsetLeft;
+            scrollLeft = container.scrollLeft;
+        });
+        container.addEventListener('mouseleave', () => { isDown = false; });
+        container.addEventListener('mouseup', () => { isDown = false; });
+        container.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - container.offsetLeft;
+            const walk = (x - startX) * 2;
+            container.scrollLeft = scrollLeft - walk;
+        });
+
+    </script>
+</body>
+</html>
