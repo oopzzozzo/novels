@@ -169,11 +169,7 @@
             let text = await file.text();
             
             // Masking common horizontal characters for vertical display
-            // Modern vertical-rl usually handles 「」 and （） well, 
-            // but we provide manual overrides if needed.
             const masks = [
-                [/—/g, '｜'],
-                [/～/g, '｜'],
                 [/…/g, '︙'],
                 [/《/g, '﹃'],
                 [/》/g, '﹄'],
