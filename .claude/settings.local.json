@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.webtoons.com)",
+      "WebSearch",
+      "WebFetch(domain:www.novelupdates.com)",
+      "WebFetch(domain:novel.munpia.com)",
+      "WebFetch(domain:ssn.so)",
+      "WebFetch(domain:v64yvvrdgers.livejournal.com)",
+      "WebFetch(domain:page.kakao.com)",
+      "WebFetch(domain:freewebnovel.com)",
+      "WebFetch(domain:cynicalkim.com)",
+      "WebFetch(domain:series.naver.com)",
+      "WebFetch(domain:namu.wiki)",
+      "WebFetch(domain:myst-might-mayhem.fandom.com)",
+      "WebFetch(domain:manhuaus.com)",
+      "WebFetch(domain:mm.munpia.com)",
+      "WebFetch(domain:manhwaclan.com)",
+      "WebFetch(domain:novelfire.net)",
+      "WebFetch(domain:mystmightmayhem.com)",
+      "WebFetch(domain:m.happymh.com)",
+      "WebFetch(domain:www.dongmanmanhua.cn)",
+      "WebFetch(domain:dumanwu.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(pip install:*)",
+      "Bash(vibium:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:anicube.net)",
+      "Bash(echo:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

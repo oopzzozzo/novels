@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>垂直閱讀器 - 圍城</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div id="controls">
+        <input type="file" id="fileInput" accept=".md,.txt">
+        <button id="toggleMode">切換直/橫排</button>
+    </div>
+    <div id="content" class="vertical">
+        <div id="inner-content">
+            請選擇一個 Markdown 檔案進行閱讀。
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
