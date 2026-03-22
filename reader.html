@@ -24,7 +24,7 @@
             height: 100vh; overflow: hidden;
         }
         #header {
-            padding: 12px 25px;
+            padding: 4px 25px;
             background: var(--header-bg);
             color: var(--header-text);
             display: flex; align-items: center; justify-content: space-between;
@@ -35,22 +35,22 @@
             flex: 1; padding: 40px 5%;
             writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl;
             overflow-x: auto; overflow-y: hidden;
-            display: flex; cursor: grab; scroll-behavior: smooth;
+            cursor: grab;
         }
         #reader-container:active { cursor: grabbing; }
         #content {
-            font-size: 24px; line-height: 2.2; letter-spacing: 0.15em;
-            max-height: 100%; white-space: pre-wrap; text-align: justify;
+            font-size: 24px; line-height: 1.8; letter-spacing: 0.15em;
+            white-space: pre-wrap; text-align: justify;
         }
         .btn {
-            padding: 10px 18px; background: var(--btn-bg); color: #ffffff;
+            padding: 5px 14px; background: var(--btn-bg); color: #ffffff;
             border: 1px solid #444; cursor: pointer; border-radius: 6px;
             font-size: 14px; display: flex; align-items: center; gap: 8px;
             transition: all 0.2s; font-weight: 500;
         }
         .btn:hover:not(:disabled) { background: var(--btn-hover); transform: translateY(-1px); }
         .btn:disabled { background: var(--btn-disabled); color: #666; cursor: not-allowed; }
-        #file-info { font-weight: bold; font-size: 20px; writing-mode: horizontal-tb; color: #efefef; }
+        #file-info { font-weight: bold; font-size: 15px; writing-mode: horizontal-tb; color: #efefef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; text-align: center; padding: 0 10px; }
         .nav-group { display: flex; align-items: center; gap: 15px; }
         .chapter-label { font-size: 12px; color: #bbb; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
         
@@ -65,11 +65,14 @@
 <body>
     <div id="header">
         <div class="nav-group">
-            <input type="file" id="directoryInput" webkitdirectory directory multiple>
-            <button class="btn" id="pickFolder">📁 選擇資料夾</button>
+            <!-- file:// mode -->
+            <input type="file" id="directoryInput" webkitdirectory directory multiple style="display:none">
+            <button class="btn" id="pickFolder" style="display:none">📁 選擇資料夾</button>
+            <!-- server mode -->
+            <select id="bookSelect" class="btn" style="display:none"></select>
             <button class="btn" id="prevBtn"><span>▲</span> <span id="prevLabel" class="chapter-label"></span></button>
         </div>
-        <div id="file-info">請選擇資料夾開始閱讀</div>
+        <div id="file-info">載入中…</div>
         <div class="nav-group">
             <button class="btn" id="nextBtn"><span id="nextLabel" class="chapter-label"></span> <span>▼</span></button>
         </div>
@@ -81,75 +84,149 @@
         const contentDiv = document.getElementById('content'), fileInfo = document.getElementById('file-info');
         const prevBtn = document.getElementById('prevBtn'), nextBtn = document.getElementById('nextBtn');
         const prevLabel = document.getElementById('prevLabel'), nextLabel = document.getElementById('nextLabel');
-        const pickBtn = document.getElementById('pickFolder'), directoryInput = document.getElementById('directoryInput');
         const container = document.getElementById('reader-container');
+        const bookSelect = document.getElementById('bookSelect');
 
-        const naturalSort = (a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+        const isServerMode = location.protocol !== 'file:';
+        const naturalSort = (a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'});
 
-        pickBtn.addEventListener('click', () => directoryInput.click());
+        const header = document.getElementById('header');
 
-        directoryInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files)
-                .filter(file => file.name.endsWith('.txt'))
-                .sort(naturalSort);
-            
-            if (files.length === 0) { alert("找不到 .txt 檔案"); return; }
-            chapters = files;
+        function adjustContentHeight() {
+            const style = getComputedStyle(contentDiv);
+            const charHeight = parseFloat(style.fontSize) + (parseFloat(style.letterSpacing) || 0);
+            const containerStyle = getComputedStyle(container);
+            const paddingV = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+            const available = (window.visualViewport?.height ?? window.innerHeight)
+                              - header.offsetHeight - paddingV;
+            contentDiv.style.height = Math.floor(available / charHeight) * charHeight + 'px';
+        }
 
-            // Progress Memory: restore last read file
-            const lastFile = localStorage.getItem('firefox_reader_last_file');
-            let startIdx = 0;
-            if (lastFile) {
-                const foundIdx = chapters.findIndex(f => f.name === lastFile);
-                if (foundIdx !== -1) startIdx = foundIdx;
-            }
-            loadChapter(startIdx);
-        });
+        function pageWidth() {
+            const colWidth = parseFloat(getComputedStyle(contentDiv).lineHeight);
+            return Math.floor(container.clientWidth / colWidth) * colWidth;
+        }
 
+        function chapterName(ch) { return (isServerMode ? ch : ch.name).replace('.txt', ''); }
+
+        // --- Server mode ---
+        async function initServerMode() {
+            bookSelect.style.display = '';
+            const books = await fetch('/api/books').then(r => r.json());
+            books.forEach(b => { const o = document.createElement('option'); o.value = o.textContent = b; bookSelect.appendChild(o); });
+
+            const lastBook = localStorage.getItem('reader_last_book');
+            if (lastBook && books.includes(lastBook)) bookSelect.value = lastBook;
+
+            bookSelect.addEventListener('change', () => loadBook(bookSelect.value));
+            loadBook(bookSelect.value);
+        }
+
+        async function loadBook(book) {
+            localStorage.setItem('reader_last_book', book);
+            chapters = await fetch(`/api/chapters?book=${encodeURIComponent(book)}`).then(r => r.json());
+            const lastFile = localStorage.getItem('reader_last_file_' + book);
+            let idx = 0;
+            if (lastFile) { const i = chapters.indexOf(lastFile); if (i !== -1) idx = i; }
+            loadChapter(idx);
+        }
+
+        // --- File mode ---
+        function initFileMode() {
+            const pickBtn = document.getElementById('pickFolder');
+            const directoryInput = document.getElementById('directoryInput');
+            pickBtn.style.display = '';
+            fileInfo.textContent = '請選擇資料夾開始閱讀';
+
+            pickBtn.addEventListener('click', () => directoryInput.click());
+            directoryInput.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files).filter(f => f.name.endsWith('.txt')).sort((a,b) => naturalSort(a.name, b.name));
+                if (!files.length) { alert("找不到 .txt 檔案"); return; }
+                chapters = files;
+                const lastFile = localStorage.getItem('reader_last_file');
+                let idx = 0;
+                if (lastFile) { const i = chapters.findIndex(f => f.name === lastFile); if (i !== -1) idx = i; }
+                loadChapter(idx);
+            });
+        }
+
+        // --- Shared ---
         async function loadChapter(index) {
             if (index < 0 || index >= chapters.length) return;
             currentIndex = index;
-            const file = chapters[currentIndex];
-            let text = await file.text();
-            
-            // Vertical masking
+            const ch = chapters[currentIndex];
+            let text;
+            if (isServerMode) {
+                text = await fetch(`/api/chapter?book=${encodeURIComponent(bookSelect.value)}&file=${encodeURIComponent(ch)}`).then(r => r.text());
+                localStorage.setItem('reader_last_file_' + bookSelect.value, ch);
+            } else {
+                text = await ch.text();
+                localStorage.setItem('reader_last_file', ch.name);
+            }
+
             const masks = [[/…/g, '︙'], [/《/g, '﹃'], [/》/g, '﹄'], [/〈/g, '︿'], [/〉/g, '﹀'], [/（/g, '︵'], [/）/g, '︶']];
             masks.forEach(([reg, rep]) => text = text.replace(reg, rep));
 
             contentDiv.innerText = text;
-            fileInfo.innerText = file.name.replace('.txt', '');
+            fileInfo.innerText = chapterName(ch);
             updateNavUI();
-            container.scrollLeft = container.scrollWidth;
-            localStorage.setItem('firefox_reader_last_file', file.name);
-            
+
+            requestAnimationFrame(() => {
+                adjustContentHeight();
+                container.scrollLeft = container.scrollWidth;
+                container.scrollBy(-parseFloat(getComputedStyle(container).paddingRight), 0);
+            });
+
             container.classList.remove('fade-in');
-            void container.offsetWidth; 
+            void container.offsetWidth;
             container.classList.add('fade-in');
         }
 
         function updateNavUI() {
-            if (currentIndex > 0) { prevBtn.disabled = false; prevLabel.innerText = chapters[currentIndex-1].name.replace('.txt', ''); }
-            else { prevBtn.disabled = true; prevLabel.innerText = "已是首章"; }
-            if (currentIndex < chapters.length - 1) { nextBtn.disabled = false; nextLabel.innerText = chapters[currentIndex+1].name.replace('.txt', ''); }
-            else { nextBtn.disabled = true; nextLabel.innerText = "已是末章"; }
+            const prev = chapters[currentIndex - 1], next = chapters[currentIndex + 1];
+            prevBtn.disabled = !prev; prevLabel.innerText = prev ? chapterName(prev) : '已是首章';
+            nextBtn.disabled = !next; nextLabel.innerText = next ? chapterName(next) : '已是末章';
         }
 
         prevBtn.addEventListener('click', () => loadChapter(currentIndex - 1));
         nextBtn.addEventListener('click', () => loadChapter(currentIndex + 1));
 
+        window.addEventListener('resize', adjustContentHeight);
+
         document.addEventListener('keydown', (e) => {
-            const scrollAmount = container.clientWidth * 0.75;
-            if (e.key === 'ArrowLeft') container.scrollLeft -= scrollAmount;
-            else if (e.key === 'ArrowRight') container.scrollLeft += scrollAmount;
+            if (e.key === 'ArrowLeft') container.scrollBy(-pageWidth(), 0);
+            else if (e.key === 'ArrowRight') container.scrollBy(pageWidth(), 0);
             else if (e.key === 'ArrowUp') loadChapter(currentIndex - 1);
             else if (e.key === 'ArrowDown') loadChapter(currentIndex + 1);
         });
 
-        let isDown = false, startX, scrollLeft;
-        container.addEventListener('mousedown', (e) => { isDown = true; startX = e.pageX - container.offsetLeft; scrollLeft = container.scrollLeft; });
+        let isDown = false, startX, scrollLeft, didDrag = false, recentTouch = false;
+        container.addEventListener('mousedown', (e) => { if (recentTouch) return; isDown = true; didDrag = false; startX = e.pageX - container.offsetLeft; scrollLeft = container.scrollLeft; });
         container.addEventListener('mouseleave', () => isDown = false);
-        container.addEventListener('mouseup', () => isDown = false);
-        container.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - container.offsetLeft; const walk = (x - startX) * 2; container.scrollLeft = scrollLeft - walk; });
+        container.addEventListener('mouseup', (e) => {
+            if (recentTouch) { isDown = false; return; }
+            if (isDown && !didDrag) {
+                e.pageX - container.offsetLeft < container.clientWidth / 2
+                    ? container.scrollBy(-pageWidth(), 0)
+                    : container.scrollBy(pageWidth(), 0);
+            }
+            isDown = false;
+        });
+        container.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - container.offsetLeft; const walk = (x - startX) * 2; if (Math.abs(walk) > 5) didDrag = true; container.scrollLeft = scrollLeft - walk; });
+
+        container.addEventListener('touchstart', (e) => { startX = e.touches[0].pageX; didDrag = false; }, { passive: true });
+        container.addEventListener('touchmove', (e) => { if (Math.abs(e.touches[0].pageX - startX) > 10) didDrag = true; }, { passive: true });
+        container.addEventListener('touchend', (e) => {
+            recentTouch = true;
+            setTimeout(() => { recentTouch = false; }, 500);
+            if (!didDrag) {
+                e.changedTouches[0].pageX < window.innerWidth / 2
+                    ? container.scrollBy(-pageWidth(), 0)
+                    : container.scrollBy(pageWidth(), 0);
+            }
+        });
+
+        isServerMode ? initServerMode() : initFileMode();
     </script>
 </body>
 </html>
